@@ -32,7 +32,7 @@
 // (hooks two XVM functions and switches on the GUI VM's print flag). Release
 // builds ship with 0.
 #define EA_DEV 0
-#define EA_VERSION "0.9.0-beta1"
+#define EA_VERSION "0.9.1-beta2"
 
 // ---------------------------------------------------------------- logging --
 static char g_logPath[MAX_PATH] = "EnhancedArchangels.log";
@@ -745,6 +745,42 @@ static int DropzoneArchangelRows() {
     return (int)*(uint32_t*)(buf + data + sheets + 4) - 1;     // first sheet rows minus the header row
 }
 
+// ------------------------------------------------------------- startup --
+// Test switch: MADMAX_MODS_DEFER=1 in the environment, or a file
+// scriptsorce_steam_path.txt, forces the deferred (Steam) startup path on a
+// build whose code is readable at load time.
+static bool ForceDefer() {
+    char v[8];
+    if (GetEnvironmentVariableA("MADMAX_MODS_DEFER", v, sizeof(v)) > 0 && v[0] == '1') return true;
+    char path[MAX_PATH];                             // or a marker file: <game>\scriptsorce_steam_path.txt
+    GetModuleFileNameA(NULL, path, MAX_PATH);
+    char* slash = strrchr(path, '\\'); if (slash) slash[1] = 0;
+    strcat_s(path, "scripts\\force_steam_path.txt");
+    return GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES;
+}
+
+static void InstallMod();
+static volatile LONG g_installed = 0;
+typedef void (WINAPI* GetStartupInfoWFn)(LPSTARTUPINFOW info, uintptr_t chain);
+static GetStartupInfoWFn GetStartupInfoW_orig = nullptr;
+
+// True when the executable's code can be read: the first signature matches.
+static bool GameCodeReady() {
+    GameSignature probe = g_sigs[SIG_LOCRAW];
+    return ScanPattern(probe);
+}
+
+// The second argument is not part of GetStartupInfoW; mm_sdk-based plugins
+// pass a marker through it to each other, so it is forwarded untouched.
+static void WINAPI GetStartupInfoW_hook(LPSTARTUPINFOW info, uintptr_t chain) {
+    GetStartupInfoW_orig(info, chain);
+    if (g_installed || !GameCodeReady()) return;
+    if (InterlockedExchange(&g_installed, 1) == 0) {
+        LogLine("game code ready (C runtime startup), installing");
+        InstallMod();
+    }
+}
+
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID)
 {
     if (reason == DLL_PROCESS_DETACH) {
@@ -756,6 +792,24 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID)
     InitLog(hModule);
     LogLine("Enhanced Archangels %s", EA_VERSION);
     if (!FindText()) { LogLine("no .text section, disabled"); return TRUE; }
+    MH_Initialize();
+    if (GameCodeReady() && !ForceDefer()) {
+        g_installed = 1;
+        InstallMod();
+    } else {
+        // Steam: the executable is wrapped by Steam's DRM and its code is still
+        // encrypted while plugins load, so no signature can match yet. The
+        // game's C runtime startup calls GetStartupInfoW once the real code is
+        // running; install from there (the way gigaHours' mm_sdk does).
+        LPVOID gsi = (LPVOID)GetProcAddress(GetModuleHandleA("kernel32.dll"), "GetStartupInfoW");
+        MH_STATUS c = gsi ? MH_CreateHook(gsi, (LPVOID)GetStartupInfoW_hook, (LPVOID*)&GetStartupInfoW_orig) : MH_ERROR_FUNCTION_NOT_FOUND;
+        MH_STATUS e = (c == MH_OK) ? MH_EnableHook(gsi) : c;
+        LogLine("game code not readable yet (Steam DRM?), installing at game startup: %s", MH_StatusToString(e));
+    }
+    return TRUE;
+}
+
+static void InstallMod() {
     bool ok = true;
     for (int i = 0; i < SIG_COUNT; i++) {
         bool found = ScanPattern(g_sigs[i]);
@@ -767,15 +821,14 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID)
         MessageBoxA(NULL, "Enhanced Archangels is DISABLED on this game version, but an Archangel table with more than 16 entries "
             "is installed (dropzone\\vehicles\\archetypes.xlsc).\n\nThe garage WILL crash. Remove that file before playing.",
             "Mad Max - Enhanced Archangels", MB_OK | MB_ICONERROR);
-        return TRUE;
+        return;
     }
     if (!ok) {
         MessageBoxA(NULL, "Enhanced Archangels is DISABLED: it could not find the game functions it needs in this executable.\n\n"
             "The game is safe to play. Please report your game version to the mod author.", "Mad Max - Enhanced Archangels", MB_OK | MB_ICONWARNING);
-        return TRUE;
+        return;
     }
     for (int i = 0; i < TEXT_COUNT; i++) g_texts[i].id = Jenkins(g_texts[i].key);
-    MH_Initialize();
     {
         uintptr_t site = g_sigs[SIG_GARAGESTATE].resolved;              // mov rax,[rip+disp32]
         g_garageStateVar = (void**)(site + 7 + *(int32_t*)(site + 3));
@@ -800,5 +853,4 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID)
     MH_STATUS c = MH_CreateHook((LPVOID)g_sigs[SIG_LOCRAW].resolved, (LPVOID)LocRaw_hook, (LPVOID*)&LocRaw_orig);
     MH_STATUS e = (c == MH_OK) ? MH_EnableHook((LPVOID)g_sigs[SIG_LOCRAW].resolved) : c;
     LogLine("string lookup hook: %s (%d texts)", MH_StatusToString(e), TEXT_COUNT);
-    return TRUE;
 }

@@ -1,9 +1,13 @@
-# Mad Max – Enhanced Archangels (v0.9.0-beta1)
+# Mad Max – Enhanced Archangels (v0.9.1-beta2)
 
 Quatro Archangels novos, um bônus para cada Archangel e correções nas telas
 que nunca esperaram mais de dezesseis.
 
 **Isto é um beta.** Faça backup dos seus saves antes de testar.
+
+## Novidades do beta2
+
+* **Correção para Steam.** Na Steam a versão anterior não encontrava nenhuma das funções do jogo: o executável da Steam mantém o código criptografado até o jogo começar (o DRM da Steam), e o mod procurava cedo demais. Agora ele espera o jogo começar antes de procurar. Testado simulando esse início na versão da GOG; quem joga na Steam, por favor mande o `scripts\EnhancedArchangels.log` se algo der errado.
 
 ## Os Archangels novos
 
@@ -67,7 +71,7 @@ novo mantém as peças.
 
 ## Requisitos e compatibilidade
 
-* Feito e testado na versão da **GOG**. Steam não foi testada: se o mod não
+* Feito e testado na versão da **GOG**. Steam deve funcionar desde o beta2, mas ainda não foi confirmada: se o mod não
   encontrar o que precisa no executável, ele se desativa e avisa, e o jogo
   continua seguro.
 * Conteúdo *The Ripper*, para três dos Archangels novos.

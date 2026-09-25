@@ -1,9 +1,13 @@
-# Mad Max – Enhanced Archangels (v0.9.0-beta1)
+# Mad Max – Enhanced Archangels (v0.9.1-beta2)
 
 Four new Archangels, a bonus for every Archangel, and fixes for the screens
 that never expected more than sixteen.
 
 **This is a beta.** Back up your saves before trying it.
+
+## What's new in beta2
+
+* **Steam fix.** On Steam the previous version found none of the game functions it needs: the Steam executable keeps its code encrypted until the game starts (Steam's DRM), and the mod was looking too early. It now waits for the game to start before looking. Tested by simulating that startup on the GOG version; Steam players, please send `scripts\EnhancedArchangels.log` if anything goes wrong.
 
 ## The new Archangels
 
@@ -68,9 +72,10 @@ keeps its parts.
 
 ## Requirements and compatibility
 
-* Made and tested on the **GOG** version. Steam is untested: if the mod can't
-  find what it needs in your executable it disables itself and tells you so,
-  and the game stays safe to play.
+* Made and tested on the **GOG** version. Steam should work since beta2 but
+  hasn't been confirmed yet: if the mod can't find what it needs in your
+  executable it disables itself and tells you so, and the game stays safe to
+  play.
 * *The Ripper* content, for three of the new Archangels.
 * It replaces, through the dropzone, the Archangel table
   (`vehicles/archetypes.xlsc`), the garage and Collectibles screens
